@@ -51,7 +51,7 @@ class jsonRPCServer {
               * @param param_arr - the parameters to be passed to the function, as an indexed array. 
               * @return returns the function result or FALSE on error.
               */
-             if($result = @call_user_func_array(array($object, $request['method']), $request['params'])) {
+             if(!is_null($result = @call_user_func_array(array($object, $request['method']), $request['params']))) {
 
                $response = array(
                                 'id' => $request['id'],
