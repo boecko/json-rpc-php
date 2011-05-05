@@ -77,13 +77,14 @@ class jsonRPCClient {
          /* Performs the HTTP POST */
          $opts = array('http' => array(
                                        'method' => 'POST',
-                                       'header' => 'Content-type: application/json',
+                                       'header' => array('Content-type: application/json',
+                                                         'User-Agent: PHP'),
                                        'content' => $request
                                        )); 
 
          $context = stream_context_create($opts);
 
-         if($fp = fopen($this->uri, 'r', false, $context)) {
+         if($fp = @fopen($this->uri, 'r', false, $context)) {
 
             $response = '';
 
@@ -97,8 +98,8 @@ class jsonRPCClient {
             $response = json_decode($response, true);    
              
          } else {
-
-           throw new Exception('Unable to connect to'. $this->uri);
+             $uri = preg_split("/\?/", $this->uri);
+           throw new Exception('Unable to connect to'. $uri[0]);
          } 
          
          /*

@@ -12,10 +12,9 @@ class jsonRPCServer {
          if(!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
          
              if($_SERVER['CONTENT_TYPE'] != 'application/x-www-form-urlencoded; charset=UTF-8' &&
-                                 $_SERVER['HTTP_ACCEPT'] != 'applicatin/json' &&
-                                        $_SERVER['HTTP_X_REQUEST'] != 'JSON') {
-
-                  return false;  
+                                 !preg_match('/application\/json.*/', $_SERVER['HTTP_ACCEPT']) &&
+                                 $_SERVER['HTTP_X_REQUEST'] != 'JSON') {
+                                     return false;
              }
 
          /* otherwise, the request is made through PHP client */
@@ -39,7 +38,6 @@ class jsonRPCServer {
           * @param $options - bitmask of JSON decode options. currently only JSON_BIGINT_AS_STRING is supported.     
           */
          $request = json_decode(file_get_contents("php://input"), true); 
-
          /* executes the task in local object */
          try {
              /* 
@@ -88,6 +86,9 @@ class jsonRPCServer {
               * @return - returns a JSON encoded string on success.
               */
               echo json_encode($response);
+         }
+         if($_SERVER['HTTP_USER_AGENT'] == 'PHP') {
+             @session_destroy();
          }
 
        /* finish */
