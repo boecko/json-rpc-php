@@ -77,11 +77,10 @@ class jsonRPCClient {
          /* Performs the HTTP POST */
          $opts = array('http' => array(
                                        'method' => 'POST',
-                                       'header' => array('Content-type: application/json',
-                                                         'User-Agent: PHP'),
+                                       'header' => join("\n",array('Content-type: application/json',
+                                                                   'User-Agent: PHP')),
                                        'content' => $request
                                        )); 
-
          $context = stream_context_create($opts);
 
          if($fp = @fopen($this->uri, 'r', false, $context)) {
@@ -99,7 +98,7 @@ class jsonRPCClient {
              
          } else {
              $uri = preg_split("/\?/", $this->uri);
-           throw new Exception('Unable to connect to'. $uri[0]);
+             throw new Exception('Unable to connect to'. $uri[0]);
          } 
          
          /*
@@ -108,7 +107,7 @@ class jsonRPCClient {
           * @return String returns string with '<br/>' or '<br>' inserted before al newlines.
           */
          if($this->debug) {
-            echo nl2br($this->debug);
+            echo ($this->debug);
          }
 
          /* Final checks and return */
