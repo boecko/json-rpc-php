@@ -1,7 +1,6 @@
 <?php
 
 class jsonRPCServer {
-
     /*
      * @param $object Object
      * @return Boolean
@@ -14,6 +13,8 @@ class jsonRPCServer {
              if($_SERVER['CONTENT_TYPE'] != 'application/x-www-form-urlencoded; charset=UTF-8' &&
                                  !preg_match('/application\/json.*/', $_SERVER['HTTP_ACCEPT']) &&
                                  $_SERVER['HTTP_X_REQUEST'] != 'JSON') {
+                                     //sort($_SERVER);
+                                     //print_r($_SERVER);
                                      return false;
              }
 
@@ -21,7 +22,7 @@ class jsonRPCServer {
          } else { 
 
            if($_SERVER['REQUEST_METHOD'] != 'POST' || 
-                 $_SERVER['CONTENT_TYPE'] != 'application/json' || 
+                 $_SERVER['CONTENT_TYPE'] != 'application/json-rpc' || 
                                         empty($_SERVER['CONTENT_TYPE'])) {
                 return false;
            }
@@ -38,6 +39,7 @@ class jsonRPCServer {
           * @param $options - bitmask of JSON decode options. currently only JSON_BIGINT_AS_STRING is supported.     
           */
          $request = json_decode(file_get_contents("php://input"), true); 
+         $rpcversion = $request['jsonrpc']=='2.0'?2:1;
          /* executes the task in local object */
          try {
              /* 
@@ -49,7 +51,8 @@ class jsonRPCServer {
               * @param param_arr - the parameters to be passed to the function, as an indexed array. 
               * @return returns the function result or FALSE on error.
               */
-             if(!is_null($result = @call_user_func_array(array($object, $request['method']), $request['params']))) {
+              $result = @call_user_func_array(array($object, $request['method']), (array) $request['params']);
+             if(!is_null($result)) {
 
                $response = array(
                                 'id' => $request['id'],
@@ -57,24 +60,34 @@ class jsonRPCServer {
                                 'error' => NULL
                                 );           
              } else {
+               $error = 'Unknown method or parameters';
+               if($rpcversion == 2) {
+                   $error = array('code'=> 0 , 'message' => $error );
+               }
                $response = array(
                               'id' => $request['id'],
                               'result' => NULL,
-                              'error' => 'Unknown method or parameters'
+                              'error' => $error
                              ); 
              } 
                       
          }catch(Exception $e) {
+                $error= $e->getMessage();
+               if($rpcversion == 2) {
+                   $error = array('code'=> $e->getCode() , 'message' => $error );
+               }         
                $response = array(
                               'id' => $request['id'],
                               'result' => NULL,
-                              'error' => $e->getMessage()
+                              'error' => $error
                              );
          }  
           
          //output the response
          if(!empty($request['id'])) {
-
+            if($rpcversion == 2) {
+                $response['jsonrpc'] = "2.0";
+            }
              header('content-type: text/javascript');
              /*
               * Returns the JSON represenation of a value.
