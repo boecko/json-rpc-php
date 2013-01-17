@@ -22,7 +22,7 @@ class jsonRPCServer {
          } else { 
 
            if($_SERVER['REQUEST_METHOD'] != 'POST' || 
-                 $_SERVER['CONTENT_TYPE'] != 'application/json-rpc' || 
+              !preg_match('/^application\/json.*/',$_SERVER['CONTENT_TYPE'])  || 
                                         empty($_SERVER['CONTENT_TYPE'])) {
                 return false;
            }
