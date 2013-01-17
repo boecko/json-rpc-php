@@ -26,20 +26,54 @@ class jsonRPCClient {
      * @var Boolean
      */
     private $keepsession = false;
-    /* 
+    
+    /*
+     * Curl-instance
+     */ 
+    private $ch = null;
+    
+    private $cookie_file_generated = true;
+    private $cookie_file = null;
+
+    /*
      *  Constructor of class
      *  Takes the connection parameters
      *
      *  @param String $url
-     *  @param Boolean $debug
-     *  @param Boolean $keepsession
+     *  @param Array $options  array('debug'=>false|true, 'keepsession'=> false|true, 'cookie_file' => ...)
      */
-    public function __construct($uri, $debug = false, $keepsession=false) {
+    public function __construct($uri, $options = array()) {
         $this->uri = $uri;
-        $this->keepsession = $keepsession;
+        $this->keepsession = $options['keepsession'];
         empty($proxy) ? $this->proxy = '' : $this->proxy = $proxy;
-        empty($debug) ? $this->debug = false : $this->debug = true;
-        $this->debugclone = $debug;        
+        empty($options['debug']) ? $this->debug = false : $this->debug = true;
+        $this->debugclone = $debug;
+        
+        $userAgent = 'PHP';
+        if($this->keepsession) {
+            $userAgent = 'PHPWithSession';
+        }
+        $ch = curl_init();
+        if(empty($options['cookie_file'])) {
+            $this->cookie_file = tmpfile();
+        }
+        else {
+            $this->cookie_file = $options['cookie_file'];
+            $this->cookie_file_generated = false;
+        }
+
+        curl_setopt($ch, CURLOPT_COOKIESESSION, false);
+        curl_setopt($ch, CURLOPT_COOKIEFILE, $this->cookie_file);
+        curl_setopt($ch, CURLOPT_COOKIEJAR, $this->cookie_file);
+        curl_setopt($ch, CURLOPT_URL, $this->uri); 
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); 
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-type: application/json-rpc'));
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_USERAGENT, $userAgent);
+        $this->ch = $ch;
+    }
+
+    public function __destruct() {
     }
 
     /*
@@ -83,22 +117,10 @@ class jsonRPCClient {
 
          $this->debug && $this->debug .= "\n".'**** Client Request ******'."\n".$request."\n".'**** End of Client Request *****'."\n";
 
-         $userAgent = 'PHP';
-         if($this->keepsession) {
-             $userAgent = 'PHPWithSession';
-         }
          /* Performs the HTTP POST */
-         $ch = curl_init();
-         curl_setopt($ch, CURLOPT_COOKIESESSION, true);
-         curl_setopt($ch, CURLOPT_URL, $this->uri); 
-         curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); 
-         curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-type: application/json-rpc'));
-         curl_setopt($ch, CURLOPT_POST, true);
-         curl_setopt($ch, CURLOPT_USERAGENT, $userAgent);
-         curl_setopt($ch, CURLOPT_POSTFIELDS, $request);
-         $response = curl_exec($ch); 
-         $contentTypeServer = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
-         curl_close($ch);
+         curl_setopt($this->ch, CURLOPT_POSTFIELDS, $request);
+         $response = curl_exec($this->ch); 
+         $contentTypeServer = curl_getinfo($this->ch, CURLINFO_CONTENT_TYPE);
          if($contentTypeServer=='text/javascript') {
             $this->debug && $this->debug .= '**** Server response ****'."\n".$response."\n".'**** End of server response *****'."\n\n";
 

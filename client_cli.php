@@ -1,14 +1,16 @@
 <?php
 
 require_once('jsonRPCClient.php');
-$client = new jsonRPCClient('http://localhost/hacks/json-rpc-php/server.php');
+$client = new jsonRPCClient('http://localhost/hacks/json-rpc-php/server.php', array('keepsession' => true, 'cookie_file' => 'cookies.txt'));
 
-$arr = array(9,8,7,6,5,4,3,2,1,0);
 try {
-    //call this method from network
-    echo $client->getTweets('boecko',15,true);
+    echo "setSessionVar test1=foobar1\n";
+    $client->setSessionVar('test1','foobar1');
+
+    sleep(1);
+    echo "getSessionVar test1=" . $client->getSessionVar('test1') . "\n";
 } catch(Exception $e) {
-    echo $e->getMessage(); 
+    echo "Exception: " . $e->getMessage() . "\n"; 
 }
 
 ?>
