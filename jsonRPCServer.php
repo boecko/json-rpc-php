@@ -51,20 +51,20 @@ class jsonRPCServer {
               * @param param_arr - the parameters to be passed to the function, as an indexed array. 
               * @return returns the function result or FALSE on error.
               */
-              $result = @call_user_func_array(array($object, $request['method']), (array) $request['params']);
-             if(!is_null($result)) {
-
-               $response = array(
+             $method_exists = method_exists($object, $request['method']);
+             if($method_exists) {
+                 $result = @call_user_func_array(array($object, $request['method']), (array) $request['params']);
+                 $response = array(
                                 'id' => $request['id'],
                                 'result' => $result,
                                 'error' => NULL
                                 );           
              } else {
-               $error = 'Unknown method or parameters';
-               if($rpcversion == 2) {
-                   $error = array('code'=> 0 , 'message' => $error );
-               }
-               $response = array(
+                 $error = 'Unknown method "' . $request['method'] . '"';
+                 if($rpcversion == 2) {
+                     $error = array('code'=> 0 , 'message' => $error );
+                 }
+                 $response = array(
                               'id' => $request['id'],
                               'result' => NULL,
                               'error' => $error
@@ -88,7 +88,7 @@ class jsonRPCServer {
             if($rpcversion == 2) {
                 $response['jsonrpc'] = "2.0";
             }
-             header('content-type: text/javascript');
+            header('content-type: text/javascript');
              /*
               * Returns the JSON represenation of a value.
               * Syntax: string json_encode(mixed $value [,int $options = 0 ]);
