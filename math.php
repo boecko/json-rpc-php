@@ -151,17 +151,21 @@
          }
 
          public function getTweets($username,$amount=5,$linkify=false) {
-            $api = 'http://twitter.com/statuses/user_timeline/' . $username . '.json?count=' . $amount;
+             $api = 'https://api.twitter.com/1/statuses/user_timeline.json?include_entities=true&include_rts=true&screen_name='. $username . '&count=' . $count;
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_URL, $api);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
             $output = curl_exec($ch);
             curl_close($ch);
             $tweets = json_decode($output);
+            if(empty($tweets) || empty($tweets[0]) || $tweets['error']) {
+                throw(new Exception("no tweets: ". $tweets['error'], -1));
+            }
             $out = '<ul>';             
             foreach($tweets as $tweet) {
                 if($linkify) { 
-                   $tweet = preg_replace("/(https?:\/\/[\w\-:;?&=+.%#\/]+)/i", '<a href="$1">$1</a>',$tweet->text);
+                    $tweet = preg_replace("/(https?:\/\/[\w\-:;?&=+.%#\/]+)/i", '<a href="$1">$1</a>',$tweet->text);
                    $tweet = preg_replace("/(^|\W)@(\w+)/i", '$1@<a href="http://twitter.com/$2">$2</a>',$tweet);
                    $tweet = preg_replace("/(^|\W)#(\w+)/i", '$1#<a href="http://search.twitter.com/search?q=%23$2">$2</a>',$tweet);
                    $out .= '<li>'.$tweet.'</li>';
