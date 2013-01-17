@@ -132,7 +132,7 @@ class jsonRPCClient {
                }
                else {
                    $error = (array) $response['error'];
-                   throw new Exception('Request error: '. $error['method'], $error['code']);     
+                   throw new Exception($error['message'], $error['code']);     
                }
            }   
 
