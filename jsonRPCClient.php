@@ -20,15 +20,23 @@ class jsonRPCClient {
      * @var Boolean
      */
     private $notification = false;
+    /*
+     * If true, the USERAGENT is not set and jsonRPCServer doesn't destroy the session
+     * only of use, when the backend is jsonRPCServer
+     * @var Boolean
+     */
+    private $keepsession = false;
     /* 
      *  Constructor of class
      *  Takes the connection parameters
      *
      *  @param String $url
      *  @param Boolean $debug
+     *  @param Boolean $keepsession
      */
-    public function __construct($uri, $debug = false) {
+    public function __construct($uri, $debug = false, $keepsession=false) {
         $this->uri = $uri;
+        $this->keepsession = $keepsession;
         empty($proxy) ? $this->proxy = '' : $this->proxy = $proxy;
         empty($debug) ? $this->debug = false : $this->debug = true;
         $this->debugclone = $debug;        
@@ -67,38 +75,38 @@ class jsonRPCClient {
          $request = array(
                           'method' => $method,
                           'params' => $params,
-                          'id' => $currentId
+                          'id' => $currentId,
+                          'jsonrpc'=> '2.0'
                          );
 
          $request = json_encode($request);
 
          $this->debug && $this->debug .= "\n".'**** Client Request ******'."\n".$request."\n".'**** End of Client Request *****'."\n";
 
+         $userAgent = 'PHP';
+         if($this->keepsession) {
+             $userAgent = 'PHPWithSession';
+         }
          /* Performs the HTTP POST */
-         $opts = array('http' => array(
-                                       'method' => 'POST',
-                                       'header' => join("\n",array('Content-type: application/json',
-                                                                   'User-Agent: PHP')),
-                                       'content' => $request
-                                       )); 
-         $context = stream_context_create($opts);
-
-         if($fp = @fopen($this->uri, 'r', false, $context)) {
-
-            $response = '';
-
-            while($row=fgets($fp)) {
-
-                $response .= trim($row)."\n"; 
-            } 
-
+         $ch = curl_init();
+         curl_setopt($ch, CURLOPT_COOKIESESSION, true);
+         curl_setopt($ch, CURLOPT_URL, $this->uri); 
+         curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); 
+         curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-type: application/json-rpc'));
+         curl_setopt($ch, CURLOPT_POST, true);
+         curl_setopt($ch, CURLOPT_USERAGENT, $userAgent);
+         curl_setopt($ch, CURLOPT_POSTFIELDS, $request);
+         $response = curl_exec($ch); 
+         $contentTypeServer = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+         curl_close($ch);
+         if($contentTypeServer=='text/javascript') {
             $this->debug && $this->debug .= '**** Server response ****'."\n".$response."\n".'**** End of server response *****'."\n\n";
 
             $response = json_decode($response, true);    
              
          } else {
              $uri = preg_split("/\?/", $this->uri);
-             throw new Exception('Unable to connect to'. $uri[0]);
+             throw new Exception('Unable to connect to '. $uri[0] . "\nResponse: $response");
          } 
          
          /*
@@ -112,13 +120,20 @@ class jsonRPCClient {
 
          /* Final checks and return */
          if(!$this->notification) {
+            $rpcversion = $response['jsonrpc']=='2.0'?2:1;
 
            if($response['id'] != $currentId) {
                throw new Exception('Incorrect response ID (request ID: '. $currentId . ', response ID: '. $response['id'].')');
            }
 
            if(!is_null($response['error'])) {
-               throw new Exception('Request error: '. $response['error']);     
+               if($rpcversion==1) {
+                   throw new Exception('Request error: '. $response['error']);     
+               }
+               else {
+                   $error = (array) $response['error'];
+                   throw new Exception('Request error: '. $error['method'], $error['code']);     
+               }
            }   
 
            $this->debug = $this->debugclone;
