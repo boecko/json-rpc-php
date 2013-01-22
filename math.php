@@ -17,6 +17,16 @@
             return $a;
          }
 
+         public function setSessionVar($key, $val) {
+             $_SESSION[$key] = $val;
+         }
+         public function getSessionVar($key) {
+             if(empty($_SESSION[$key])) {
+                 return "<leer>";
+             }
+             return $_SESSION[$key];
+         }
+
          public function submult($n) {
                 $out = "";           
                 $vec = array();
