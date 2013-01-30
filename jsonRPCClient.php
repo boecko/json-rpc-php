@@ -121,7 +121,7 @@ class jsonRPCClient {
          curl_setopt($this->ch, CURLOPT_POSTFIELDS, $request);
          $response = curl_exec($this->ch); 
          $contentTypeServer = curl_getinfo($this->ch, CURLINFO_CONTENT_TYPE);
-         if($contentTypeServer=='text/javascript') {
+         if($contentTypeServer=='text/javascript' || $contentTypeServer=='application/json-rpc' ) {
             $this->debug && $this->debug .= '**** Server response ****'."\n".$response."\n".'**** End of server response *****'."\n\n";
 
             $response = json_decode($response, true);    
