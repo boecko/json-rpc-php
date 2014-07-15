@@ -34,7 +34,10 @@ class jsonRPCClient {
     
     private $cookie_file_generated = true;
     private $cookie_file = null;
-
+    private $stream_mode = false;
+    private $stream_host = false;
+    private $stream_port = false;
+    private $stream_socket = 0;
     /*
      *  Constructor of class
      *  Takes the connection parameters
@@ -53,7 +56,6 @@ class jsonRPCClient {
         if($this->keepsession) {
             $userAgent = 'PHPWithSession';
         }
-        $ch = curl_init();
         if(empty($options['cookie_file'])) {
             $this->cookie_file = tmpfile();
         }
@@ -61,16 +63,27 @@ class jsonRPCClient {
             $this->cookie_file = $options['cookie_file'];
             $this->cookie_file_generated = false;
         }
-
-        curl_setopt($ch, CURLOPT_COOKIESESSION, false);
-        curl_setopt($ch, CURLOPT_COOKIEFILE, $this->cookie_file);
-        curl_setopt($ch, CURLOPT_COOKIEJAR, $this->cookie_file);
-        curl_setopt($ch, CURLOPT_URL, $this->uri); 
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); 
-        curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-type: application/json-rpc'));
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_USERAGENT, $userAgent);
-        $this->ch = $ch;
+        if(!empty($options['stream_host'])) {
+            $this->stream_mode = true;
+            $this->stream_host = $options['stream_host'];
+            $this->stream_port = $options['stream_port'];
+        }
+        if($this->stream_mode) {
+            $this->stream_socket = socket_create(AF_INET, SOCK_STREAM, 0);
+            socket_connect($this->stream_socket, $this->stream_host, $this->stream_port);
+        }
+        else {
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_COOKIESESSION, false);
+            curl_setopt($ch, CURLOPT_COOKIEFILE, $this->cookie_file);
+            curl_setopt($ch, CURLOPT_COOKIEJAR, $this->cookie_file);
+            curl_setopt($ch, CURLOPT_URL, $this->uri); 
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); 
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-type: application/json-rpc'));
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_USERAGENT, $userAgent);
+            $this->ch = $ch;
+        }
     }
 
     public function __destruct() {
@@ -117,10 +130,20 @@ class jsonRPCClient {
 
          $this->debug && $this->debug .= "\n".'**** Client Request ******'."\n".$request."\n".'**** End of Client Request *****'."\n";
 
-         /* Performs the HTTP POST */
-         curl_setopt($this->ch, CURLOPT_POSTFIELDS, $request);
-         $response = curl_exec($this->ch); 
-         $contentTypeServer = curl_getinfo($this->ch, CURLINFO_CONTENT_TYPE);
+         if($this->stream_mode) {
+             $contentTypeServer = 'text/javascript';
+             $len = socket_write($this->stream_socket,$request);
+             if($len === false) {
+                 throw new Exception('Socket-Error:' . socket_strerror(socket_last_error()));
+             }
+             $response = socket_read($this->stream_socket,10 * 1024 * 1024);
+         }
+         else {
+             /* Performs the HTTP POST */
+             curl_setopt($this->ch, CURLOPT_POSTFIELDS, $request);
+             $response = curl_exec($this->ch); 
+             $contentTypeServer = curl_getinfo($this->ch, CURLINFO_CONTENT_TYPE);
+         }
          if($contentTypeServer=='text/javascript' || $contentTypeServer=='application/json-rpc' ) {
             $this->debug && $this->debug .= '**** Server response ****'."\n".$response."\n".'**** End of server response *****'."\n\n";
 
@@ -180,7 +203,13 @@ class jsonRPCClient {
       public function setRPCNotification($notification) {
              empty($notification) ? $this->notification = false : $this->notification = true;
          return true;  
-      } 
+      }
+
+      public function close() {
+          if($this->stream_mode) {
+              socket_close($this->stream_socket);
+          }
+      }
 
 }
 ?>
